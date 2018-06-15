@@ -33,19 +33,8 @@ class UnitTest(unittest.TestCase):
 
     @timetest
     def test_get_post_reaction(self):
-        full_path = 'https://www.facebook.com/bnk48official/photos/a.849974175129842.1073741828.842370685890191/1569874263139826/?type=3&theater'
-        reactions = self.fb_reaction_getter.get_post_reactons(full_path)
-        short_path = '_'.join(urlparse(full_path).path.split('/'))
-
-        date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        file_name = '{}_{}_{}.csv'.format(short_path, len(reactions), date_time)
-        print('saving csv to {}'.format(file_name))
-        
-        
-        df = pd.DataFrame(reactions,
-                        columns=['name', 'profile_url', 'reaction'])
-        df.to_csv(file_name, sep=',', encoding='utf-8')
-        print('saved success'.format(file_name))
+        post_path = 'https://www.facebook.com/jo.ntsd/posts/1777546198957948?notif_id=1529057690967068&notif_t=feedback_reaction_generic'#'https://www.facebook.com/bnk48official/photos/a.849974175129842.1073741828.842370685890191/1569874263139826/?type=3&theater'
+        self.fb_reaction_getter.post_reactions_to_csv(post_path)
 
     def tearDown(self):
         self.fb_reaction_getter.close()

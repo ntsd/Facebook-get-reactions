@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import datetime
+from urllib.parse import urlparse
 
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -104,6 +107,19 @@ class FacebookPostReactionsGetter:
                 reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[index]))
         if self.log:print('get {} reactions success'.format(len(reactions)))
         return reactions
+
+    def post_reactions_to_csv(self, full_path):
+        reactions = self.get_post_reactons(full_path)
+        short_path = '_'.join(list(filter(None,urlparse(full_path).path.split('/'))))
+
+        date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        file_name = '{}_{}_{}.csv'.format(short_path, len(reactions), date_time)
+        print('saving csv to {}'.format(file_name))
+            
+        df = pd.DataFrame(reactions,
+                        columns=['name', 'profile_url', 'reaction'])
+        df.to_csv(file_name, sep=',', encoding='utf-8')
+        print('saved success'.format(file_name))
 
     def close(self):
         """
