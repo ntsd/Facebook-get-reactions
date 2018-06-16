@@ -25,7 +25,7 @@ class UnitTest(unittest.TestCase):
     @timetest
     def setUp(self):
         self.fb_reaction_getter = FacebookPostReactionsGetter()
-        self.fb_reaction_getter.log = True
+        self.fb_reaction_getter.showlog = True
         @timetest
         def test_facebook_Login():
             self.fb_reaction_getter.login_facebook(config.FACEBOOK_EMAIL, config.FACEBOOK_PASSWORD)
@@ -33,7 +33,7 @@ class UnitTest(unittest.TestCase):
 
     @timetest
     def test_get_post_reaction(self):
-        post_path = 'https://www.facebook.com/jo.ntsd/posts/1777546198957948?notif_id=1529057690967068&notif_t=feedback_reaction_generic'#'https://www.facebook.com/bnk48official/photos/a.849974175129842.1073741828.842370685890191/1569874263139826/?type=3&theater'
+        post_path = 'https://www.facebook.com/bnk48official/photos/a.849974175129842.1073741828.842370685890191/1569874263139826/?type=3&theater'
         self.fb_reaction_getter.post_reactions_to_csv(post_path)
 
     def tearDown(self):

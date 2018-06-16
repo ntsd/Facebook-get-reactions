@@ -14,7 +14,7 @@ from reaction import Reaction
 class FacebookPostReactionsGetter:
     def __init__(self):
         self.driver = webdriver.Firefox()
-        self.log = False
+        self.showlog = False
 
     def login_facebook(self, facebook_email, facebook_password):
         """
@@ -24,7 +24,7 @@ class FacebookPostReactionsGetter:
             Output:
                 - driver sign in to Facbook
         """
-        if self.log:print('sign in facebook...')
+        self.log('sign in facebook...')
         self.driver.get("https://www.facebook.com/")
         emailFieldID = "email"
         passFieldID = "pass"
@@ -41,7 +41,7 @@ class FacebookPostReactionsGetter:
         passFieldElement.send_keys(facebook_password)
         loginButtonElement.click()
         WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_xpath(facebookLogo)) # wait login success
-        if self.log:print('sign in success')
+        self.log('sign in success')
 
     def get_post_reactons(self, post_url):
         """
@@ -50,40 +50,14 @@ class FacebookPostReactionsGetter:
             Output:
                 - Reactions List [Reaction]
         """
-        if self.log:print('load post page: ', post_url)
+        self.log('load post page: ', post_url)
         self.driver.get(post_url)
-        if self.log:print('load post page success')
+        self.log('load post page success')
         reactionModalXpath = "//a[@class='_2x4v']"
         seeMoreXpath = "//a[text() = 'See More']"
 
         reactionPath = WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_xpath(reactionModalXpath)).get_attribute("href")
         self.driver.get(reactionPath)
-
-        xpath_profile = ".//li[@class='_5i_q']"
-
-        old_len = len(self.driver.find_elements_by_xpath(xpath_profile))
-
-        tried = 0
-        while True: # show 50 more
-            try:
-                showMoreButton = WebDriverWait(self.driver, 10).until(lambda driver: self.driver.find_element_by_xpath(seeMoreXpath)) # wait util see see more
-                self.driver.execute_script("arguments[0].click();", showMoreButton) # use for click show more button
-                # showMoreButton.send_keys("\n") #doesn't work
-                
-                WebDriverWait(self.driver, 10).until(lambda driver: len(self.driver.find_elements_by_xpath(xpath_profile)) > old_len) # check element load complete
-
-                if self.log:print('click show more now {} rows...'.format(len(self.driver.find_elements_by_xpath(xpath_profile))))
-
-                old_len = len(self.driver.find_elements_by_xpath(xpath_profile))
-
-            except Exception as e:
-                if self.log:print(e)
-                if old_len==len(self.driver.find_elements_by_xpath(xpath_profile)) or tried>2:
-                    if self.log:print("click show more success")
-                    break
-                else:
-                    tried+=1
-                    if self.log:print('tried {}'.format(tried))
 
         class_reaction_xpath = "//div[@class='_3p56']"
         class_reaction_elements = self.driver.find_elements_by_xpath(class_reaction_xpath)
@@ -91,21 +65,55 @@ class FacebookPostReactionsGetter:
         for class_reaction in class_reaction_elements:
             class_reaction_names.append(class_reaction.text)
 
-        list_profile_xpath = "//div[@class='_5i_p']"
-        list_profile_elements = self.driver.find_elements_by_xpath(list_profile_xpath)
+        list_class_xpath = ".//div[@class='_5i_p']"
+        list_class_elements = self.driver.find_elements_by_xpath(list_class_xpath)
 
+        profile_xpath = ".//li[@class='_5i_q']"
         profile_name_xpath = ".//div[@class='_5j0e fsl fwb fcb']/a"
         # profile_url_xpath = "//a[@clas='_5i_s _8o _8r lfloat _ohe']"
         reactions = []
-        for index, list_profile in enumerate(list_profile_elements):
-            li_profile_elements = list_profile.find_elements_by_xpath(xpath_profile)
-            # print(len(li_profile_elements))
-            for li_profile in li_profile_elements:
-                profile_name = li_profile.find_element_by_xpath(profile_name_xpath).text
-                profile_url = li_profile.find_element_by_xpath(profile_name_xpath).get_attribute("href")
-                # print(profile_name, profile_url, class_reaction_names[index])
-                reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[index]))
-        if self.log:print('get {} reactions success'.format(len(reactions)))
+        for reaction_index, reaction_profile_list in enumerate(list_class_elements):
+            list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath)
+            # self.log(len(list_profile_elements))
+            old_len = len(list_profile_elements) #old len to check show more button work
+            sum_len = 0
+            tried = 0
+            while True: # show 50 more
+                try:
+                    showMoreButton = WebDriverWait(self.driver, 10).until(lambda driver: reaction_profile_list.find_element_by_xpath(seeMoreXpath)) # wait util show more button
+                    self.driver.execute_script("arguments[0].click();", showMoreButton) # use for click show more button
+                    # showMoreButton.send_keys("\n") #doesn't work
+                    WebDriverWait(self.driver, 10).until(lambda driver: len(reaction_profile_list.find_elements_by_xpath(profile_xpath)) > old_len) # check show more load complete
+
+                    list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
+
+                    new_len = len(list_profile_elements)
+                    sum_len += new_len
+
+                    self.log('click show more for {} reactions for {} rows now {} rows...'.format(\
+                        class_reaction_names[reaction_index], new_len-old_len, sum_len))
+
+                    for li_profile in list_profile_elements: # for in profile element
+                        profile_name = li_profile.find_element_by_xpath(profile_name_xpath).text # get name of profile
+                        profile_url = li_profile.find_element_by_xpath(profile_name_xpath).get_attribute("href") # get url of profile
+                        # self.log(profile_name, profile_url, class_reaction_names[reaction_index])
+                        reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[reaction_index]))
+                        self.driver.execute_script("""
+                            var element = arguments[0];
+                            element.parentNode.removeChild(element);
+                            """, li_profile) # delete element after append to list
+                    
+                    old_len = 0
+
+                except Exception as e:
+                    self.log(e)
+                    if tried>2:
+                        self.log("click show more success")
+                        break
+                    tried+=1
+                    self.log('tried {}'.format(tried))
+            
+        self.log('get {} reactions success'.format(len(reactions)))
         return reactions
 
     def post_reactions_to_csv(self, full_path):
@@ -114,12 +122,12 @@ class FacebookPostReactionsGetter:
 
         date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         file_name = '{}_{}_{}.csv'.format(short_path, len(reactions), date_time)
-        print('saving csv to {}'.format(file_name))
+        self.log('saving csv to {}'.format(file_name))
             
         df = pd.DataFrame(reactions,
                         columns=['name', 'profile_url', 'reaction'])
         df.to_csv(file_name, sep=',', encoding='utf-8')
-        print('saved success'.format(file_name))
+        self.log('saved success'.format(file_name))
 
     def close(self):
         """
@@ -127,7 +135,11 @@ class FacebookPostReactionsGetter:
                 - close this driver
         """
         self.driver.quit()
-        if self.log:print('closed driver')
+        self.log('closed driver')
+
+    def log(self, *args, **kwargs):
+        if self.showlog:
+            print(*args, **kwargs)
 
 if __name__ == '__main__':
     import config
