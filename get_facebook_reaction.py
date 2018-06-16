@@ -8,12 +8,38 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 from reaction import Reaction
 
 class FacebookPostReactionsGetter:
-    def __init__(self):
-        self.driver = webdriver.Firefox()
+    def __init__(self, driver='firefox', headless=True):
+        """
+            Argument:
+                - driver String browser to use
+                    'htmlunit' *only headless version
+                    'firefox'
+                    'chrome'
+                - headless Bool
+                    use headless or not
+                    headless is faster but not show in window
+        """
+        if driver=='htmlunit':
+            self.driver = webdriver.Remote("http://localhost:4444/wd/hub", webdriver.DesiredCapabilities.HTMLUNITWITHJS)
+        if driver=='firefox':
+            from selenium.webdriver.firefox.options import Options
+            firefox_options = Options()
+            if headless:
+                firefox_options.add_argument("--headless")
+            self.driver = webdriver.Firefox(firefox_options=firefox_options)
+        if driver=='chrome':
+            from selenium.webdriver.chrome.options import Options
+            chrome_options = Options()
+            chrome_options.add_argument("--log-level=3") # disable log in chrome
+            if headless:
+                chrome_options.add_argument("--headless")
+            self.driver = webdriver.Chrome(chrome_options=chrome_options)
+
         self.showlog = False
 
     def login_facebook(self, facebook_email, facebook_password):
@@ -59,12 +85,13 @@ class FacebookPostReactionsGetter:
         reactionPath = WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_xpath(reactionModalXpath)).get_attribute("href")
         self.driver.get(reactionPath)
 
-        class_reaction_xpath = "//div[@class='_3p56']"
+        class_reaction_xpath = ".//div[@class='_3p56']"
         class_reaction_elements = self.driver.find_elements_by_xpath(class_reaction_xpath)
         class_reaction_names = []
         for class_reaction in class_reaction_elements:
-            class_reaction_names.append(class_reaction.text)
+            class_reaction_names.append(class_reaction.get_attribute('innerHTML'))
 
+        # print(class_reaction_names)
         list_class_xpath = ".//div[@class='_5i_p']"
         list_class_elements = self.driver.find_elements_by_xpath(list_class_xpath)
 
@@ -80,10 +107,10 @@ class FacebookPostReactionsGetter:
             tried = 0
             while True: # show 50 more
                 try:
-                    showMoreButton = WebDriverWait(self.driver, 10).until(lambda driver: reaction_profile_list.find_element_by_xpath(seeMoreXpath)) # wait util show more button
+                    showMoreButton = WebDriverWait(self.driver, 5).until(lambda driver: reaction_profile_list.find_element_by_xpath(seeMoreXpath)) # wait util show more button
                     self.driver.execute_script("arguments[0].click();", showMoreButton) # use for click show more button
                     # showMoreButton.send_keys("\n") #doesn't work
-                    WebDriverWait(self.driver, 10).until(lambda driver: len(reaction_profile_list.find_elements_by_xpath(profile_xpath)) > old_len) # check show more load complete
+                    WebDriverWait(self.driver, 5).until(lambda driver: len(reaction_profile_list.find_elements_by_xpath(profile_xpath)) > old_len) # check show more load complete
 
                     list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
 
@@ -105,14 +132,25 @@ class FacebookPostReactionsGetter:
                     
                     old_len = 0
 
-                except Exception as e:
-                    self.log(e)
-                    if tried>2:
-                        self.log("click show more success")
+                except TimeoutException:
+                    if tried>-1:
+                        list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
+                        new_len = len(list_profile_elements)
+                        sum_len += new_len
+                        for li_profile in list_profile_elements: # for in profile element
+                            profile_name = li_profile.find_element_by_xpath(profile_name_xpath).text # get name of profile
+                            profile_url = li_profile.find_element_by_xpath(profile_name_xpath).get_attribute("href") # get url of profile
+                            # self.log(profile_name, profile_url, class_reaction_names[reaction_index])
+                            reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[reaction_index]))
+                            self.driver.execute_script("""
+                                var element = arguments[0];
+                                element.parentNode.removeChild(element);
+                                """, li_profile) # delete element after append to list
+                        self.log("click show more success for {} reactions {} rows".format(class_reaction_names[reaction_index], sum_len))
                         break
                     tried+=1
                     self.log('tried {}'.format(tried))
-            
+
         self.log('get {} reactions success'.format(len(reactions)))
         return reactions
 

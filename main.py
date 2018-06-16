@@ -7,7 +7,9 @@ import config
 from get_facebook_reaction import FacebookPostReactionsGetter
 
 def main():
-    fb_reaction_getter = FacebookPostReactionsGetter()
+    # driver is browser to use
+    # headless is faster but not show in window
+    fb_reaction_getter = FacebookPostReactionsGetter(driver='chrome', headless=True)
     fb_reaction_getter.showlog = True # use to show log default is false
     fb_reaction_getter.login_facebook(config.FACEBOOK_EMAIL, config.FACEBOOK_PASSWORD)
 
