@@ -13,19 +13,26 @@ from selenium.common.exceptions import TimeoutException
 from reaction import Reaction
 
 class FacebookPostReactionsGetter:
-    def __init__(self, driver='firefox', headless=True):
+    def __init__(self, driver='firefox', headless=True, showlog=False, delay=5):
         """
             Argument:
-                - driver String browser to use
-                    'htmlunit' *only headless version
-                    'firefox'
-                    'chrome'
-                - headless Bool
+                - driver String (default='firefox')
+                    browser to use
+                     - 'htmlunit' need to close firewall *only headless version 
+                     - 'firefox'
+                     - 'chrome'
+                - headless Bool (default=True)
                     use headless or not
                     headless is faster but not show in window
+                - showlog Bool (default=False)
+                    True - show output
+                    False - disable output
+                - deley int (default=5)
+                    low delay make a bit faster but more mistake
+                    (should not lower than 1 sec)
         """
         if driver=='htmlunit':
-            self.driver = webdriver.Remote("http://localhost:4444/wd/hub", webdriver.DesiredCapabilities.HTMLUNITWITHJS)
+            self.driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNITWITHJS)
         if driver=='firefox':
             from selenium.webdriver.firefox.options import Options
             firefox_options = Options()
@@ -39,8 +46,8 @@ class FacebookPostReactionsGetter:
             if headless:
                 chrome_options.add_argument("--headless")
             self.driver = webdriver.Chrome(chrome_options=chrome_options)
-
-        self.showlog = False
+        self.showlog = showlog
+        self.delay = delay
 
     def login_facebook(self, facebook_email, facebook_password):
         """
@@ -57,16 +64,16 @@ class FacebookPostReactionsGetter:
         loginButtonXpath = "//label[@id='loginbutton']/input"
         facebookLogo = "//a[@class='_19eb']"
 
-        emailFieldElement = WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_id(emailFieldID))
-        passFieldElement = WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_id(passFieldID))
-        loginButtonElement = WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_xpath(loginButtonXpath))
+        emailFieldElement = WebDriverWait(self.driver, self.delay).until(lambda driver: self.driver.find_element_by_id(emailFieldID))
+        passFieldElement = WebDriverWait(self.driver, self.delay).until(lambda driver: self.driver.find_element_by_id(passFieldID))
+        loginButtonElement = WebDriverWait(self.driver, self.delay).until(lambda driver: self.driver.find_element_by_xpath(loginButtonXpath))
 
         emailFieldElement.clear()
         emailFieldElement.send_keys(facebook_email)
         passFieldElement.clear()
         passFieldElement.send_keys(facebook_password)
         loginButtonElement.click()
-        WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_xpath(facebookLogo)) # wait login success
+        WebDriverWait(self.driver, self.delay).until(lambda driver: self.driver.find_element_by_xpath(facebookLogo)) # wait login success
         self.log('sign in success')
 
     def get_post_reactons(self, post_url):
@@ -80,10 +87,12 @@ class FacebookPostReactionsGetter:
         self.driver.get(post_url)
         self.log('load post page success')
         reactionModalXpath = "//a[@class='_2x4v']"
-        seeMoreXpath = "//a[text() = 'See More']"
-
-        reactionPath = WebDriverWait(self.driver, 5).until(lambda driver: self.driver.find_element_by_xpath(reactionModalXpath)).get_attribute("href")
-        self.driver.get(reactionPath)
+        
+        try:
+            reactionPath = WebDriverWait(self.driver, self.delay).until(lambda driver: self.driver.find_element_by_xpath(reactionModalXpath)).get_attribute("href")
+            self.driver.get(reactionPath)
+        except TimeoutException:
+            self.log('This path is reaction path?')
 
         class_reaction_xpath = ".//div[@class='_3p56']"
         class_reaction_elements = self.driver.find_elements_by_xpath(class_reaction_xpath)
@@ -94,6 +103,8 @@ class FacebookPostReactionsGetter:
         # print(class_reaction_names)
         list_class_xpath = ".//div[@class='_5i_p']"
         list_class_elements = self.driver.find_elements_by_xpath(list_class_xpath)
+
+        seeMoreXpath = ".//a[@rel='async']" # use to find show more button use . to find from target element
 
         profile_xpath = ".//li[@class='_5i_q']"
         profile_name_xpath = ".//div[@class='_5j0e fsl fwb fcb']/a"
@@ -107,10 +118,10 @@ class FacebookPostReactionsGetter:
             tried = 0
             while True: # show 50 more
                 try:
-                    showMoreButton = WebDriverWait(self.driver, 5).until(lambda driver: reaction_profile_list.find_element_by_xpath(seeMoreXpath)) # wait util show more button
+                    showMoreButton = WebDriverWait(self.driver, self.delay).until(lambda driver: reaction_profile_list.find_element_by_xpath(seeMoreXpath)) # wait util show more button
                     self.driver.execute_script("arguments[0].click();", showMoreButton) # use for click show more button
                     # showMoreButton.send_keys("\n") #doesn't work
-                    WebDriverWait(self.driver, 5).until(lambda driver: len(reaction_profile_list.find_elements_by_xpath(profile_xpath)) > old_len) # check show more load complete
+                    WebDriverWait(self.driver, self.delay).until(lambda driver: len(reaction_profile_list.find_elements_by_xpath(profile_xpath)) > old_len) # check show more load complete
 
                     list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
 
@@ -121,8 +132,9 @@ class FacebookPostReactionsGetter:
                         class_reaction_names[reaction_index], new_len-old_len, sum_len))
 
                     for li_profile in list_profile_elements: # for in profile element
-                        profile_name = li_profile.find_element_by_xpath(profile_name_xpath).text # get name of profile
-                        profile_url = li_profile.find_element_by_xpath(profile_name_xpath).get_attribute("href") # get url of profile
+                        profile_name_element = li_profile.find_element_by_xpath(profile_name_xpath)
+                        profile_name = profile_name_element.text # get name of profile
+                        profile_url = profile_name_element.get_attribute("href") # get url of profile
                         # self.log(profile_name, profile_url, class_reaction_names[reaction_index])
                         reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[reaction_index]))
                         self.driver.execute_script("""
@@ -133,7 +145,8 @@ class FacebookPostReactionsGetter:
                     old_len = 0
 
                 except TimeoutException:
-                    if tried>-1:
+                    if tried>0: # use to try 1 times to make sure
+                        # if no show more button add this list
                         list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
                         new_len = len(list_profile_elements)
                         sum_len += new_len
@@ -149,14 +162,14 @@ class FacebookPostReactionsGetter:
                         self.log("click show more success for {} reactions {} rows".format(class_reaction_names[reaction_index], sum_len))
                         break
                     tried+=1
-                    self.log('tried {}'.format(tried))
+                    self.log('try to check show more again {} times'.format(tried))
 
         self.log('get {} reactions success'.format(len(reactions)))
         return reactions
 
     def post_reactions_to_csv(self, full_path):
         reactions = self.get_post_reactons(full_path)
-        short_path = '_'.join(list(filter(None,urlparse(full_path).path.split('/'))))
+        short_path = '_'.join(list(filter(lambda x: not x.startswith('a.'),filter(None,urlparse(full_path).path.split('/')))))
 
         date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         file_name = '{}_{}_{}.csv'.format(short_path, len(reactions), date_time)

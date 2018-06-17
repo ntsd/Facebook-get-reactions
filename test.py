@@ -24,8 +24,7 @@ def timetest(f):
 class UnitTest(unittest.TestCase):
     @timetest
     def setUp(self):
-        self.fb_reaction_getter = FacebookPostReactionsGetter(driver='chrome', headless=True)
-        self.fb_reaction_getter.showlog = True
+        self.fb_reaction_getter = FacebookPostReactionsGetter(driver='firefox', headless=True, showlog=True)
         @timetest
         def test_facebook_Login():
             self.fb_reaction_getter.login_facebook(config.FACEBOOK_EMAIL, config.FACEBOOK_PASSWORD)
@@ -33,7 +32,7 @@ class UnitTest(unittest.TestCase):
 
     @timetest
     def test_get_post_reaction(self):
-        post_path = 'https://www.facebook.com/mr.bozr/posts/10155735613473207'#'https://www.facebook.com/bnk48official/photos/a.849974175129842.1073741828.842370685890191/1569874263139826/?type=3&theater'
+        post_path = 'https://www.facebook.com/gmmgrammyofficial/photos/1786435471421645/'
         self.fb_reaction_getter.post_reactions_to_csv(post_path)
 
     def tearDown(self):
@@ -41,7 +40,7 @@ class UnitTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-    #firefox
-    #set up and login used 27 sec
-    #get 7139 reactions used 2508.0059 sec
-    #0.35 sec per reaction
+    #chrome headless
+    #set up and login used 16 sec
+    #get 7152 reactions used 1494.7297 sec
+    #0.2 sec per reaction
