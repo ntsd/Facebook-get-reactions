@@ -120,9 +120,27 @@ class FacebookPostReactionsGetter:
                 try:
                     showMoreButton = WebDriverWait(self.driver, self.delay).until(lambda driver: reaction_profile_list.find_element_by_xpath(seeMoreXpath)) # wait util show more button
                     self.driver.execute_script("arguments[0].click();", showMoreButton) # use for click show more button
-                    # showMoreButton.send_keys("\n") #doesn't work
+                except TimeoutException:
+                    if tried>0: # use to try 1 times to make sure
+                        # if no show more button add this list
+                        list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
+                        new_len = len(list_profile_elements)
+                        sum_len += new_len
+                        for li_profile in list_profile_elements: # for in profile element
+                            profile_name = li_profile.find_element_by_xpath(profile_name_xpath).text # get name of profile
+                            profile_url = li_profile.find_element_by_xpath(profile_name_xpath).get_attribute("href") # get url of profile
+                            # self.log(profile_name, profile_url, class_reaction_names[reaction_index])
+                            reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[reaction_index]))
+                            self.driver.execute_script("""
+                                var element = arguments[0];
+                                element.parentNode.removeChild(element);
+                                """, li_profile) # delete element after append to list
+                        self.log("click show more success for {} reactions {} rows".format(class_reaction_names[reaction_index], sum_len))
+                        break
+                    tried+=1
+                    self.log('try to check show more again {} times'.format(tried))
+                try:
                     WebDriverWait(self.driver, self.delay).until(lambda driver: len(reaction_profile_list.find_elements_by_xpath(profile_xpath)) > old_len) # check show more load complete
-
                     list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
 
                     new_len = len(list_profile_elements)
@@ -143,26 +161,8 @@ class FacebookPostReactionsGetter:
                             """, li_profile) # delete element after append to list
                     
                     old_len = 0
-
                 except TimeoutException:
-                    if tried>0: # use to try 1 times to make sure
-                        # if no show more button add this list
-                        list_profile_elements = reaction_profile_list.find_elements_by_xpath(profile_xpath) # replace new list
-                        new_len = len(list_profile_elements)
-                        sum_len += new_len
-                        for li_profile in list_profile_elements: # for in profile element
-                            profile_name = li_profile.find_element_by_xpath(profile_name_xpath).text # get name of profile
-                            profile_url = li_profile.find_element_by_xpath(profile_name_xpath).get_attribute("href") # get url of profile
-                            # self.log(profile_name, profile_url, class_reaction_names[reaction_index])
-                            reactions.append(Reaction(name=profile_name, profile_url=profile_url, reaction=class_reaction_names[reaction_index]))
-                            self.driver.execute_script("""
-                                var element = arguments[0];
-                                element.parentNode.removeChild(element);
-                                """, li_profile) # delete element after append to list
-                        self.log("click show more success for {} reactions {} rows".format(class_reaction_names[reaction_index], sum_len))
-                        break
-                    tried+=1
-                    self.log('try to check show more again {} times'.format(tried))
+                    pass # if internet down should be this exception                
 
         self.log('get {} reactions success'.format(len(reactions)))
         return reactions

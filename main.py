@@ -53,6 +53,13 @@ def get_reactings_from_post(post_path):
 
 def use_multiprocessing():
     """make it more performance via multiprocessing"""
+    post_paths = [
+    'https://www.facebook.com/gmmgrammyofficial/videos/1798910450174147/',
+    'https://www.facebook.com/gmmgrammyofficial/photos/1797558486976010/?type=3',
+    'https://www.facebook.com/gmmgrammyofficial/photos/1786435471421645/?type=3',
+    'https://www.facebook.com/gmmgrammyofficial/posts/1799049140160278'
+    ]
+
     t=time.time()
     processes = list()
     for post_path in post_paths:
@@ -65,7 +72,7 @@ def use_multiprocessing():
 
 def main():
     # simple()
-    get_reaction_by_post_list()
+    # get_reaction_by_post_list()
     use_multiprocessing()
 
 
